@@ -1,0 +1,53 @@
+{
+  "project_aliases": {
+    "Project A Ops": "Project A"
+  },
+  "manual_overrides": {
+    "meeting_id_here": [
+      "Project A"
+    ]
+  },
+  "exact_name_rules": {
+    "Weekly Project A Sync": [
+      "Project A"
+    ]
+  },
+  "keyword_rules": [
+    {
+      "pattern": "project a",
+      "projects": [
+        "Project A"
+      ],
+      "confidence": "high",
+      "comment": "Case-insensitive substring match on the meeting title."
+    },
+    {
+      "pattern": "fundraising",
+      "projects": [
+        "Operations"
+      ],
+      "confidence": "medium",
+      "comment": "Use lower confidence for broader keywords."
+    }
+  ],
+  "participant_email_rules": [
+    {
+      "emails": [
+        "lead@example.org"
+      ],
+      "projects": [
+        "Project A"
+      ],
+      "confidence": "medium"
+    }
+  ],
+  "participant_domain_rules": [
+    {
+      "domain": "partner.org",
+      "projects": [
+        "Partner Program"
+      ],
+      "confidence": "low"
+    }
+  ]
+}

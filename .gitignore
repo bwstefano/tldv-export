@@ -3,3 +3,11 @@
 __pycache__/
 *.pyc
 tldv_export/
+classification_rules.json
+classified_meetings.csv
+review_queue.csv
+classification_stats.txt
+drive_upload_log.json
+credentials.json
+token.json
+logs/

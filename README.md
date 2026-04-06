@@ -1,64 +1,30 @@
-# tl;dv Full Export
+# tl;dv Export Toolkit
 
-`tldv_export.py` is a single-file Python utility for exporting the tl;dv data you can access through the public API.
+`tldv-export` is a small Python toolkit for exporting tl;dv meetings, classifying them into projects, publishing the archive to Google Drive, and synchronizing project-specific subsets into project folders.
 
-It was created for practical archival and operations work: pulling transcripts and notes in structured JSON, downloading meeting recordings when needed, and producing a local export that can later be uploaded, indexed, searched, or transformed for other workflows.
+It was created for teams that need more than the tl;dv web interface alone: reproducible exports, reviewable classification rules, spreadsheet indexes, and a structured way to distribute meetings to different project workspaces.
 
-## What It Does
+Unless stated otherwise, run the commands below from the repository root.
 
-- Exports meeting transcripts as `transcript.json`
-- Exports meeting notes/highlights as `notes.json`
-- Downloads meeting recordings as `video.mp4`
-- Extracts audio-only files as `audio.m4a`
-- Saves a full local meeting index in `all_meetings.json`
-- Supports date filters, retry lists, exclusion lists, and metadata rebuilds
+## What This Repository Includes
 
-## Why This Exists
+- [tldv_export.py](./tldv_export.py): export transcripts, notes, audio, and video from tl;dv through the official API
+- [classify_meetings.py](./classify_meetings.py): classify meetings into projects using editable rules plus a manual review loop
+- [classification_rules.example.json](./classification_rules.example.json): a starter rules file you can copy and customize
+- [upload_to_drive.py](./upload_to_drive.py): upload the exported archive to Google Drive and create a spreadsheet index
+- [sync_project_meetings.py](./sync_project_meetings.py): copy only one project's meetings from the central archive into a specific project folder on Drive
 
-The tl;dv web app is useful for browsing and sharing meetings, but many real-world workflows need a full local export:
+## End-to-End Workflow
 
-- long-term archiving
-- migrations to other systems
-- Drive publishing
-- AI indexing and summarization pipelines
-- custom reporting or analytics
-
-This script packages those tasks into one file with minimal dependencies.
-
-## How It Works
-
-The script uses tl;dv's public API with an `x-api-key` header.
-
-At a high level it:
-
-1. Lists meetings with `GET /v1alpha1/meetings`
-2. Fetches transcripts with `GET /v1alpha1/meetings/{meetingId}/transcript`
-3. Fetches notes/highlights with `GET /v1alpha1/meetings/{meetingId}/highlights`
-4. Downloads recordings through `GET /v1alpha1/meetings/{meetingId}/download`
-
-For recordings, tl;dv returns an HTTP redirect to a signed URL with a limited lifetime. This script follows that official flow and stores the downloaded file locally.
-
-## Requirements
-
-- Python 3.8+
-- `requests`
-- `ffmpeg` only if you want `--with-audio`
-
-Install the Python dependency:
-
-```bash
-pip install requests
-```
-
-Install `ffmpeg` if you want audio extraction:
-
-```bash
-brew install ffmpeg
-```
+1. Export meetings from tl;dv with [tldv_export.py](./tldv_export.py)
+2. Classify them with [classify_meetings.py](./classify_meetings.py)
+3. Review uncertain rows and retrain the ruleset by absorbing manual decisions
+4. Upload the full archive to Drive with [upload_to_drive.py](./upload_to_drive.py)
+5. Copy one project's relevant meetings into its own Drive folder with [sync_project_meetings.py](./sync_project_meetings.py)
 
 ## tl;dv API Access and Plans
 
-This script depends on tl;dv API access.
+This toolkit depends on tl;dv API access.
 
 API access is available for:
 
@@ -70,34 +36,25 @@ API access is not available for:
 - Free
 - Pro
 
-Practical recommendation:
+If the API key page is missing or endpoints return `403`, check both your own plan and the meeting organizer's plan.
 
-- If the API key page is missing or endpoints return `403`, check both your own plan and the meeting organizer's plan.
-- If you plan to use this script in production, confirm current availability with tl;dv before depending on it operationally.
-
-Official references:
+Official tl;dv references:
 
 - Public API docs: [doc.tldv.io](https://doc.tldv.io/index.html)
 - Help Center article: [API and Webhooks](https://intercom.help/tldv/en/articles/11583137-api-and-webhooks)
+- API key settings page: [tldv.io/app/settings/personal-settings/api-keys](https://tldv.io/app/settings/personal-settings/api-keys)
 
-## Create an API Key
+## Create a tl;dv API Key
 
-According to tl;dv's public API documentation, you can create an API key from your personal settings:
+According to tl;dv's public API documentation, you can create an API key from your account settings:
 
 1. Sign in to tl;dv
 2. Open [Account Settings > API Keys](https://tldv.io/app/settings/personal-settings/api-keys)
-3. Generate a new key
-4. Store it securely and do not commit it to Git
+3. Generate a key
+4. Save it securely
+5. Copy [env_template.env](./env_template.env) to `.env` and paste the key there
 
-Useful official links:
-
-- API keys page: [tldv.io/app/settings/personal-settings/api-keys](https://tldv.io/app/settings/personal-settings/api-keys)
-- API overview and usage: [doc.tldv.io](https://doc.tldv.io/index.html)
-- Help Center overview: [API and Webhooks](https://intercom.help/tldv/en/articles/11583137-api-and-webhooks)
-
-## Setup
-
-Copy the template and add your key:
+Example:
 
 ```bash
 cp env_template.env .env
@@ -109,88 +66,77 @@ Then edit `.env`:
 TLDV_API_KEY=your_api_key_here
 ```
 
-## Usage
+## Python and Tooling Requirements
 
-Export transcripts and notes only:
+- Python 3.9+
+- `requests`
+- `ffmpeg` if you want audio extraction
+- `google-api-python-client`, `google-auth-httplib2`, and `google-auth-oauthlib` for the Drive scripts
+
+Install the Python dependencies:
+
+```bash
+pip install requests google-api-python-client google-auth-httplib2 google-auth-oauthlib
+```
+
+Install `ffmpeg` if you need `audio.m4a` outputs:
+
+```bash
+brew install ffmpeg
+```
+
+## Google Drive Setup
+
+The Drive scripts use OAuth credentials from a Google Cloud project.
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/)
+2. Create or choose a project
+3. Enable the Google Drive API and Google Sheets API
+4. Create an OAuth Client ID of type `Desktop app`
+5. Save the downloaded file as `credentials.json` next to the scripts
+
+The first run will open a browser login flow and create `token.json`.
+
+## 1. Export Meetings from tl;dv
+
+[tldv_export.py](./tldv_export.py) uses tl;dv's public API with `x-api-key`.
+
+It:
+
+- lists meetings with `GET /v1alpha1/meetings`
+- fetches transcripts with `GET /v1alpha1/meetings/{meetingId}/transcript`
+- fetches notes with `GET /v1alpha1/meetings/{meetingId}/highlights`
+- downloads recordings with `GET /v1alpha1/meetings/{meetingId}/download`
+
+The download endpoint redirects to a temporary signed URL. The script follows that official flow and stores the media locally.
+
+Examples:
 
 ```bash
 python3 tldv_export.py
 ```
 
-Validate config and selection without exporting:
-
-```bash
-python3 tldv_export.py --dry-run
-```
-
-Export transcripts, notes, and audio:
-
 ```bash
 python3 tldv_export.py --with-audio
 ```
-
-Export transcripts, notes, audio, and video:
 
 ```bash
 python3 tldv_export.py --with-audio --with-video
 ```
 
-Download video without audio extraction:
-
-```bash
-python3 tldv_export.py --with-video
-```
-
-Restrict the export to meetings on or after a given date:
-
-```bash
-python3 tldv_export.py --from 2026-03-06
-```
-
-Restrict the export to a date range:
-
 ```bash
 python3 tldv_export.py --from 2026-03-06 --to 2026-04-06
 ```
 
-Add audio for meetings that already exist locally:
-
 ```bash
-python3 tldv_export.py --with-audio --only-existing
+python3 tldv_export.py --dry-run
 ```
-
-Run with a custom worker count for parallel media downloads:
-
-```bash
-python3 tldv_export.py --with-audio --with-video --workers 4
-```
-
-Generate an exclusion list from already exported meetings:
-
-```bash
-python3 tldv_export.py --generate-exclude
-```
-
-Rebuild the metadata index from the local export only:
 
 ```bash
 python3 tldv_export.py --update-metadata
 ```
 
-## Retry Failed Meetings
-
-To retry only specific meetings, create a `retry_meetings.txt` file in the same folder as the script.
-
-You can put either:
-
-- raw meeting IDs, one per line
-- log lines that contain meeting IDs
-
-When the file exists, the script will restrict processing to those meetings.
-
-## Output Structure
-
-The export is written to a local `tldv_export/` directory:
+The export is written to `tldv_export/`:
 
 ```text
 tldv_export/
@@ -206,18 +152,133 @@ tldv_export/
     └── all_meetings.json
 ```
 
+## 2. Classify Meetings with Reviewable Rules
+
+[classify_meetings.py](./classify_meetings.py) turns the exported meeting list into a project classification table.
+
+The classifier supports several rule types:
+
+- exact meeting title matches
+- keyword matches in meeting titles
+- participant email matches
+- participant domain matches
+- manual overrides by meeting ID
+- project aliases for bracket prefixes like `[Project X]`
+- conservative project inference across shared conference IDs
+
+To get started, copy the example rules file:
+
+```bash
+cp classification_rules.example.json classification_rules.json
+```
+
+Run the classifier:
+
+```bash
+python3 classify_meetings.py
+```
+
+This produces:
+
+- `classified_meetings.csv`: all meetings with automatic and manual classification columns
+- `review_queue.csv`: only low-confidence or unclassified meetings
+- `classification_stats.txt`: a text summary of coverage by project, method, and confidence
+
+## 3. Manual Review and "Training"
+
+The toolkit's "training" step is intentionally simple and reviewable.
+
+You review `review_queue.csv`, fill the `project_manual` column, and then absorb those decisions back into the rules workflow:
+
+```bash
+python3 classify_meetings.py --absorb review_queue_reviewed.csv
+```
+
+If repeated manual decisions suggest a stable exact-name rule, the script can propose it and save it back to `classification_rules.json`.
+
+To auto-apply those suggested exact-name rules:
+
+```bash
+python3 classify_meetings.py --absorb review_queue_reviewed.csv --apply-suggestions
+```
+
+This keeps the logic transparent:
+
+- the rules file is plain JSON
+- the review queue is a spreadsheet-friendly CSV
+- every retraining step is inspectable and reversible in Git
+
+## 4. Upload the Central Archive to Google Drive
+
+[upload_to_drive.py](./upload_to_drive.py) uploads the local `tldv_export/meetings/` folders to a central Drive archive and creates a spreadsheet index called `Meeting Index`.
+
+It also writes `drive_upload_log.json`, which maps meeting IDs to their Drive folder URLs. That log is used later by the project sync script.
+
+Examples:
+
+```bash
+python3 upload_to_drive.py
+```
+
+```bash
+python3 upload_to_drive.py --only-sheet
+```
+
+```bash
+python3 upload_to_drive.py --workers 4
+```
+
+```bash
+python3 upload_to_drive.py --drive-folder-id 1AbCdEfGhIjKlMnOp
+```
+
+```bash
+python3 upload_to_drive.py --dry-run
+```
+
+The spreadsheet index includes meeting title, date, duration, projects, participants, Drive folder URL, and tl;dv URL.
+
+## 5. Copy Project-Specific Meetings into Project Folders
+
+[sync_project_meetings.py](./sync_project_meetings.py) copies meetings for one project at a time from the central archive into a specific Drive folder.
+
+It creates a `Meetings` subfolder inside the destination project folder and a project-specific spreadsheet such as `Meeting Index - Project Alpha`.
+
+Examples:
+
+```bash
+python3 sync_project_meetings.py --project "Project Alpha" --folder-id 1AbCdEfGhIjKlMnOp
+```
+
+```bash
+python3 sync_project_meetings.py --project "Project Alpha" --folder-id 1AbCdEfGhIjKlMnOp --dry-run
+```
+
+```bash
+python3 sync_project_meetings.py --project "Project Alpha" --folder-id 1AbCdEfGhIjKlMnOp --refresh-existing
+```
+
+This script does not re-upload local files from your computer. It copies existing files inside Google Drive from the central archive into the destination project folder.
+
 ## Notes and Limitations
 
-- The script only exports meetings that your API key is allowed to access.
+- The toolkit only exports meetings the API key is allowed to access.
 - UI visibility in tl;dv does not automatically guarantee API export access.
-- Recording downloads use tl;dv's signed download URL flow, which is temporary by design.
-- `ffmpeg` is only needed when generating `audio.m4a`.
-- The script is intentionally dependency-light and does not use `argparse`.
+- Recording downloads depend on tl;dv's temporary signed media URLs.
+- `ffmpeg` is only required when generating audio-only outputs.
+- The Drive scripts require Google APIs and OAuth credentials.
+- Project synchronization depends on `drive_upload_log.json`, so you should keep that file alongside the archive workflow.
 
-## Official tl;dv References
+## Repository Hygiene
 
-- Public API docs: [https://doc.tldv.io/index.html](https://doc.tldv.io/index.html)
-- Help Center: [https://intercom.help/tldv/en/articles/11583137-api-and-webhooks](https://intercom.help/tldv/en/articles/11583137-api-and-webhooks)
-- API key settings: [https://tldv.io/app/settings/personal-settings/api-keys](https://tldv.io/app/settings/personal-settings/api-keys)
+This repository intentionally excludes:
+
+- real API keys
+- real Google credentials
+- local export outputs
+- upload logs
+- organization-specific project names and folder IDs
+
+Customize the rules, Drive folder IDs, and project names for your own environment.
 
 🤖 Created with Codex.
